@@ -39,25 +39,50 @@
 
         /* --- Custom Modal Styles for iOS look --- */
 
-        /* iOS-style modal container, centered, small, and white */
-        .ios-alert {
+        /* Base style for both light and dark modes */
+        .ios-alert-base {
             max-width: 300px; /* Small screen size */
-            background-color: white;
             padding: 1rem; /* Less padding than the main app card */
             border-radius: 16px; /* Very rounded corners */
             text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); /* Add shadow for realism */
             /* Transition for the pop-in/pop-out effect */
-            transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+            transition: transform 0.2s ease-out, opacity 0.2s ease-out, background-color 0.2s, color 0.2s;
         }
+        
         /* Hide state for the modal content */
-        .ios-alert.hidden-state {
+        .ios-alert-base.hidden-state {
             opacity: 0;
             transform: scale(0.9);
         }
 
+        /* Light/White Style (Standard iOS Alert) */
+        .ios-alert-light {
+            background-color: white;
+        }
+        .ios-alert-light .ios-title { color: #1f2937; /* Gray-900 */ }
+        .ios-alert-light .ios-message { color: #4b5563; /* Gray-600 */ }
+        .ios-alert-light .ios-button-wrapper { border-top: 1px solid #e0e0e0; }
+        .ios-alert-light .ios-button:active {
+            background-color: rgba(224, 224, 224, 0.5); 
+        }
+
+        /* Dark/Black Style (Modern Overlay/Toast) */
+        .ios-alert-dark {
+            background-color: #2c2c2e; /* Dark Gray / Black */
+        }
+        .ios-alert-dark .ios-title { color: white; }
+        .ios-alert-dark .ios-message { color: #a1a1aa; /* Zinc-400 */ }
+        .ios-alert-dark .ios-button-wrapper { border-top: 1px solid #48484a; /* Darker Separator */ }
+        .ios-alert-dark .ios-button {
+            color: #4dc2f8; /* Lighter blue for dark background */
+        }
+        .ios-alert-dark .ios-button:active {
+            background-color: #48484a; 
+        }
+
         /* iOS-style button wrapper for bottom action */
         .ios-button-wrapper {
-            border-top: 1px solid #e0e0e0;
             margin-top: 1rem;
             padding-top: 0;
         }
@@ -66,15 +91,13 @@
             display: block;
             width: 100%;
             padding: 0.75rem 0;
-            color: #007aff; /* iOS blue color */
+            color: #007aff; /* iOS blue color (default/light) */
             font-weight: 600;
             background: transparent;
             border: none;
             transition: background-color 0.1s;
         }
-        .ios-button:active {
-            background-color: #f0f0f0;
-        }
+
     </style>
     <!-- iOS PWA Meta Tags (Crucial for "Add to Home Screen" experience) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -142,6 +165,21 @@
         <!-- Custom Pop-up Section -->
         <div class="pt-4 border-t border-gray-200 space-y-4">
             <h2 class="text-xl font-semibold text-gray-700">Custom In-App Pop-up</h2>
+            
+            <!-- POPUP STYLE SELECTION -->
+            <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                <span class="text-sm font-medium text-gray-700">Pop-up Style:</span>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="popup-style" value="light" checked class="form-radio text-indigo-600 h-4 w-4">
+                    <span class="ml-2 text-gray-700">Light (White)</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="radio" name="popup-style" value="dark" class="form-radio text-indigo-600 h-4 w-4">
+                    <span class="ml-2 text-gray-700">Dark (Black)</span>
+                </label>
+            </div>
+            <!-- END POPUP STYLE SELECTION -->
+
             <div>
                 <label for="delay-input" class="block text-sm font-medium text-gray-700">Delay (Seconds)</label>
                 <input type="number" id="delay-input" value="3" min="1" max="60"
@@ -161,9 +199,9 @@
     <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center p-4"
         aria-modal="true" role="dialog">
         <!-- iOS-style Alert Box -->
-        <div id="modal-content" class="ios-alert hidden-state" role="document">
-            <h3 id="modal-title" class="text-lg font-semibold text-gray-900 mt-2 mb-1">Custom Pop-up</h3>
-            <p id="modal-message" class="text-sm text-gray-500 mb-0 px-2"></p>
+        <div id="modal-content" class="ios-alert-base hidden-state" role="document">
+            <h3 id="modal-title" class="ios-title text-lg font-semibold mt-2 mb-1">Custom Pop-up</h3>
+            <p id="modal-message" class="ios-message text-sm mb-0 px-2"></p>
             
             <div class="ios-button-wrapper">
                 <button class="ios-button" onclick="closeCustomPopup()">
@@ -329,9 +367,20 @@
             const modal = document.getElementById('custom-modal');
             const modalContent = document.getElementById('modal-content');
             
+            // Determine the selected style
+            const style = document.querySelector('input[name="popup-style"]:checked').value;
+            
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-message').textContent = message;
             
+            // Apply selected style
+            modalContent.classList.remove('ios-alert-light', 'ios-alert-dark');
+            if (style === 'dark') {
+                modalContent.classList.add('ios-alert-dark');
+            } else {
+                modalContent.classList.add('ios-alert-light');
+            }
+
             // 1. Make the dark overlay visible
             modal.classList.remove('hidden');
             
@@ -374,9 +423,7 @@
             showCustomPopup("Timer Started", `The custom pop-up will appear in ${delay} seconds.`);
 
             setTimeout(() => {
-                // To prevent double-showing, close the current 'Timer Started' message
-                // before showing the new one, but only if the user hasn't closed it.
-                // For simplicity here, we'll just show the new one.
+                // Rerun the show function to display the actual message with the selected style
                 showCustomPopup(title, message);
             }, delay * 1000); // Convert seconds to milliseconds
         }
