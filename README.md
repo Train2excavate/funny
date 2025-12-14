@@ -36,6 +36,45 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
         }
+
+        /* --- Custom Modal Styles for iOS look --- */
+
+        /* iOS-style modal container, centered, small, and white */
+        .ios-alert {
+            max-width: 300px; /* Small screen size */
+            background-color: white;
+            padding: 1rem; /* Less padding than the main app card */
+            border-radius: 16px; /* Very rounded corners */
+            text-align: center;
+            /* Transition for the pop-in/pop-out effect */
+            transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+        }
+        /* Hide state for the modal content */
+        .ios-alert.hidden-state {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+
+        /* iOS-style button wrapper for bottom action */
+        .ios-button-wrapper {
+            border-top: 1px solid #e0e0e0;
+            margin-top: 1rem;
+            padding-top: 0;
+        }
+        /* iOS-style button */
+        .ios-button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 0;
+            color: #007aff; /* iOS blue color */
+            font-weight: 600;
+            background: transparent;
+            border: none;
+            transition: background-color 0.1s;
+        }
+        .ios-button:active {
+            background-color: #f0f0f0;
+        }
     </style>
     <!-- iOS PWA Meta Tags (Crucial for "Add to Home Screen" experience) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -82,6 +121,15 @@
                 <textarea id="message-input" placeholder="Enter message..." rows="2"
                     class="input-field w-full rounded-lg">This is your custom message!</textarea>
             </div>
+            <!-- NEW ICON URL INPUT FIELD -->
+            <div>
+                <label for="icon-url-input" class="block text-sm font-medium text-gray-700">Notification Icon URL (Must be HTTPS)</label>
+                <input type="url" id="icon-url-input" 
+                    value="https://placehold.co/128x128/10b981/ffffff?text=Alert" 
+                    placeholder="Paste a public image URL here (e.g., HTTPS link)"
+                    class="input-field w-full rounded-lg">
+            </div>
+            <!-- END NEW ICON URL INPUT FIELD -->
 
             <!-- Native Notification Button -->
             <button id="show-native-btn"
@@ -110,16 +158,18 @@
     </div>
 
     <!-- Custom Pop-up Modal (Hidden by default) -->
-    <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+    <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center p-4"
         aria-modal="true" role="dialog">
-        <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl max-w-sm w-full transform transition-all scale-100 duration-300"
-             role="document">
-            <h3 id="modal-title" class="text-2xl font-bold text-gray-800 mb-3">Custom Pop-up</h3>
-            <p id="modal-message" class="text-gray-600 mb-6"></p>
-            <button class="w-full btn-large bg-red-500 text-white rounded-lg hover:bg-red-600"
-                    onclick="closeCustomPopup()">
-                Close Pop-up
-            </button>
+        <!-- iOS-style Alert Box -->
+        <div id="modal-content" class="ios-alert hidden-state" role="document">
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-900 mt-2 mb-1">Custom Pop-up</h3>
+            <p id="modal-message" class="text-sm text-gray-500 mb-0 px-2"></p>
+            
+            <div class="ios-button-wrapper">
+                <button class="ios-button" onclick="closeCustomPopup()">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 
@@ -137,6 +187,7 @@
 
         let db, auth;
         let notificationPermission = 'default';
+        const DEFAULT_ICON_URL = "https://placehold.co/128x128/10b981/ffffff?text=Alert";
 
         // --- Utility Functions ---
 
@@ -174,7 +225,8 @@
             const nativeBtn = document.getElementById('show-native-btn');
             const permBtn = document.getElementById('request-permission-btn');
 
-            notificationPermission = Notification.permission;
+            // Use the standard Notification API status
+            notificationPermission = "Notification" in window ? Notification.permission : 'denied';
 
             switch (notificationPermission) {
                 case 'granted':
@@ -206,7 +258,7 @@
          */
         window.requestNotificationPermission = async function() {
             if (!("Notification" in window)) {
-                alert("This browser does not support desktop notification.");
+                showCustomPopup("Error", "This browser does not support desktop notification.");
                 return;
             }
 
@@ -216,10 +268,10 @@
                 
                 if (permission === 'granted') {
                     console.log("Notification permission granted.");
-                    // Optional: Show a test notification immediately
+                    // Show a test notification immediately
                     new Notification("Permission Granted!", {
                         body: "You can now send system alerts.",
-                        icon: "https://placehold.co/128x128/4f46e5/ffffff?text=OK"
+                        icon: DEFAULT_ICON_URL
                     });
                 } else if (permission === 'denied') {
                     console.warn("Notification permission denied.");
@@ -240,12 +292,14 @@
 
             const title = document.getElementById('title-input').value || "Notification";
             const message = document.getElementById('message-input').value || "Alert from your custom app!";
+            // Get the user-provided icon URL, falling back to a default if empty
+            const iconUrl = document.getElementById('icon-url-input').value || DEFAULT_ICON_URL;
+
 
             try {
-                // The icon is important for a professional look.
                 const notification = new Notification(title, {
                     body: message,
-                    icon: "https://placehold.co/128x128/10b981/ffffff?text=Alert",
+                    icon: iconUrl, // Use the user's custom URL
                     tag: 'custom-app-notification-' + Date.now(), // Use a unique tag to prevent merging
                     renotify: true,
                     silent: false
@@ -257,31 +311,50 @@
                     window.focus();
                 };
                 
-                console.log(`Native Notification shown: ${title}`);
+                console.log(`Native Notification shown: ${title} with icon: ${iconUrl}`);
             } catch (e) {
                 console.error("Failed to show native notification:", e);
-                showCustomPopup("Native Notification Failed", "Could not show the system notification. Check console for details.");
+                showCustomPopup("Native Notification Failed", "Could not show the system notification. Check console for details. Ensure the icon URL is valid and HTTPS.");
             }
         }
 
         // --- Custom Pop-up Modal Functions ---
         
         /**
-         * Shows the custom modal instantly.
+         * Shows the custom modal instantly with the iOS-style animation.
          * @param {string} title 
          * @param {string} message 
          */
         function showCustomPopup(title, message) {
+            const modal = document.getElementById('custom-modal');
+            const modalContent = document.getElementById('modal-content');
+            
             document.getElementById('modal-title').textContent = title;
             document.getElementById('modal-message').textContent = message;
-            document.getElementById('custom-modal').classList.remove('hidden');
+            
+            // 1. Make the dark overlay visible
+            modal.classList.remove('hidden');
+            
+            // 2. Wait for paint, then start the pop-in transition
+            setTimeout(() => {
+                modalContent.classList.remove('hidden-state');
+            }, 10); // Small delay for rendering
         }
 
         /**
-         * Hides the custom modal.
+         * Hides the custom modal with the iOS-style animation.
          */
         window.closeCustomPopup = function() {
-            document.getElementById('custom-modal').classList.add('hidden');
+            const modal = document.getElementById('custom-modal');
+            const modalContent = document.getElementById('modal-content');
+            
+            // 1. Start the pop-out transition
+            modalContent.classList.add('hidden-state');
+
+            // 2. Wait for the transition to finish (200ms) before hiding the overlay
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200); 
         }
 
         /**
@@ -301,6 +374,9 @@
             showCustomPopup("Timer Started", `The custom pop-up will appear in ${delay} seconds.`);
 
             setTimeout(() => {
+                // To prevent double-showing, close the current 'Timer Started' message
+                // before showing the new one, but only if the user hasn't closed it.
+                // For simplicity here, we'll just show the new one.
                 showCustomPopup(title, message);
             }, delay * 1000); // Convert seconds to milliseconds
         }
